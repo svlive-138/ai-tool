@@ -1,0 +1,173 @@
+ import streamlit as st
+# from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+# import torch
+# import pyttsx3
+# # loading the model 
+# tokenizer = AutoTokenizer.from_pretrained("vennify/t5-base-grammar-correction")
+# model = AutoModelForSeq2SeqLM.from_pretrained("vennify/t5-base-grammar-correction")
+# model.to("cpu") 
+
+# # text to speech engine setup
+# engine = pyttsx3.init()
+
+# def correct_text(text):
+#     input_text = "grammar: " + text + " Please correct this entire email including closing."
+#     inputs = tokenizer.encode(input_text, return_tensors="pt", max_length=1050, truncation=True).to("cpu") 
+#     outputs = model.generate(inputs, max_length=1050, num_beams=5, no_repeat_ngram_size=3,
+#         length_penalty=1.0, early_stopping=False)
+#     return tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+
+# def speak_text(text):
+#     try:
+#         engine.stop()
+#         engine.say(text)
+#         engine.runAndWait()
+#     except Exception as e:
+#         print(f"Error occurred while speaking: {e}")
+
+
+
+# st.title("AI-Based Spelling Correction Tool for Students")
+
+# user_input = st.text_area("Enter a sentence or paragraph:", "")
+
+# if st.button("Correct Spelling"):                                                                
+#    # if user_input.strip() != "":
+#     if user_input:
+#         corrected = correct_text(user_input)
+#         st.subheader("Corrected Text:")
+#         st.success(corrected)
+
+        
+#         speak_text(corrected)
+#     else:
+#         st.warning("Please enter some text.")
+
+
+
+
+#run command  c:users\shrey\AppData\Roaming\Python\Python313\Scripts\streamlit.exe" run spelling_correction_app.py
+#pip install pyttsx3
+import streamlit as st
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import torch
+import pyttsx3
+import io
+from docx import Document
+import nltk
+nltk.download('punkt')
+from nltk.tokenize import sent_tokenize
+
+# Load model and tokenizer
+tokenizer = AutoTokenizer.from_pretrained("vennify/t5-base-grammar-correction")
+model = AutoModelForSeq2SeqLM.from_pretrained("vennify/t5-base-grammar-correction")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model.to(device)
+
+# TTS engine
+engine = pyttsx3.init()
+
+def correct_text(text):
+    input_text = "grammar: " + text
+    inputs = tokenizer.encode(input_text, return_tensors="pt", max_length=1050, truncation=True).to(device)
+    outputs = model.generate(inputs, max_length=1050, num_beams=5, no_repeat_ngram_size=3,
+                             length_penalty=1.0, early_stopping=True)
+    return tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+def chunk_text(text, max_tokens=500):
+    sentences = sent_tokenize(text)
+    chunks = []
+    current_chunk = ""
+
+    for sentence in sentences:
+        if len(tokenizer.encode(current_chunk + sentence)) < max_tokens:
+            current_chunk += " " + sentence
+        else:
+            chunks.append(current_chunk.strip())
+            current_chunk = sentence
+    if current_chunk:
+        chunks.append(current_chunk.strip())
+    return chunks
+
+def correct_long_text(text):
+    chunks = chunk_text(text)
+    corrected_chunks = []
+    progress = st.progress(0)
+    for i, chunk in enumerate(chunks):
+        corrected = correct_text(chunk)
+        corrected_chunks.append(corrected)
+        progress.progress((i + 1) / len(chunks))
+    return "\n\n".join(corrected_chunks)
+
+def speak_text(text):
+    try:
+        engine.stop()
+        engine.say(text)
+        engine.runAndWait()
+    except Exception as e:
+        st.error(f"TTS error: {e}")
+
+def process_file(uploaded_file):
+    if uploaded_file.type == "text/plain":
+        return uploaded_file.read().decode("utf-8")
+    elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        doc = Document(uploaded_file)
+        return "\n".join([para.text for para in doc.paragraphs])
+    else:
+        st.error("Unsupported file type. Please upload a .txt or .docx file.")
+        return None
+
+def create_docx(text):
+    doc = Document()
+    for para in text.split("\n\n"):
+        doc.add_paragraph(para)
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+# UI
+st.title("📚 AI Grammar Correction Tool")
+
+input_mode = st.radio("Choose input method:", ["Text Input", "Upload File"])
+
+if input_mode == "Text Input":
+    user_input = st.text_area("Enter your text here:")
+    if st.button("Correct Grammar"):
+        if user_input.strip():
+            with st.spinner("Correcting..."):
+                corrected = correct_long_text(user_input)
+            st.subheader("✅ Corrected Text:")
+            st.success(corrected)
+
+            if st.checkbox("🔊 Read aloud"):
+                speak_text(corrected)
+
+            docx_file = create_docx(corrected)
+            st.download_button(
+                label="📥 Download as DOCX",
+                data=docx_file,
+                file_name="corrected_output.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
+        else:
+            st.warning("Please enter some text.")
+
+else:
+    uploaded_file = st.file_uploader("Upload a .txt or .docx file", type=["txt", "docx"])
+    if uploaded_file and st.button("Correct File"):
+        with st.spinner("Processing file..."):
+            raw_text = process_file(uploaded_file)
+            if raw_text:
+                corrected = correct_long_text(raw_text)
+                st.subheader("✅ Corrected Preview:")
+                st.text_area("Corrected Text", corrected, height=300)
+
+                docx_file = create_docx(corrected)
+                st.download_button(
+                    label="📥 Download Corrected DOCX",
+                    data=docx_file,
+                    file_name="corrected_" + uploaded_file.name,
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )

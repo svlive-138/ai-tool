@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtualenvs
+venv/
+.venv/
+env/
+ENV/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+
+# Byte-compiled / logs
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+# Data / uploads / models
+data/
+uploads/
+models/
+checkpoints/
+*.ckpt
+*.pth
+*.bin
+
+# Secrets and env
+.env
+secrets.toml
+*.key
+*.pem
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Streamlit local state
+.streamlit/
