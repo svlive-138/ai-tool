@@ -10,8 +10,18 @@ Notes:
  - NLTK punkt is downloaded at runtime (first run will fetch it).
  - For Windows TTS, `pyttsx3` is used as a server-side fallback; the app prefers browser TTS when available.
 """
+import os
 import nltk
-nltk.download('punkt', quiet=True)
+
+# Ensure NLTK data is available in a writable location on Streamlit Cloud
+# Store data in a local `nltk_data` folder and make sure nltk checks it first.
+nltk_data_dir = os.path.join(os.path.dirname(__file__), "nltk_data")
+os.makedirs(nltk_data_dir, exist_ok=True)
+nltk.data.path.insert(0, nltk_data_dir)
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt', download_dir=nltk_data_dir, quiet=True)
 import json
 import io
 import streamlit as st
