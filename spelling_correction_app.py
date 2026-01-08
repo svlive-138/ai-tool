@@ -10,7 +10,8 @@ Notes:
  - NLTK punkt is downloaded at runtime (first run will fetch it).
  - For Windows TTS, `pyttsx3` is used as a server-side fallback; the app prefers browser TTS when available.
 """
-
+import nltk
+nltk.download('punkt', quiet=True)
 import json
 import io
 import streamlit as st
@@ -24,8 +25,7 @@ except Exception as _e:
     _transformers_import_error = _e
 import torch
 from docx import Document
-import nltk
-nltk.download('punkt', quiet=True)
+
 from nltk.tokenize import sent_tokenize
 
 if not TRANSFORMERS_AVAILABLE:
